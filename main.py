@@ -42,11 +42,14 @@ def validate():
 #         return jsonify({'msg': 'Invalid jwt token'}), 401
     
 class ChannelsView(MethodView):
-    decorators = [jwt_required()]
     threads = 10
 
     def get(self):
-        current_user_id = get_jwt_identity()[0]
+        json_data = request.get_json()
+        jwt_token = json_data.get('jwt')
+
+        # Pass the JWT to get_jwt_identity function
+        current_user_id = get_jwt_identity(jwt_token)
         db_cursor.execute(f'select username from customers where userid={current_user_id}')
         user = db_cursor.fetchone()[0]
         channels = request.args.get('channels')
