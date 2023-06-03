@@ -1,9 +1,8 @@
-from flask import Flask, request, jsonify, redirect, url_for
+from flask import Flask, request, jsonify
 from flask_jwt_extended import create_access_token, JWTManager, jwt_required, get_jwt_identity
 from flask.views import MethodView
 from concurrent.futures import ThreadPoolExecutor
 import mysql.connector as ms
-import redis
 import os
 from dotenv import load_dotenv
 
@@ -14,13 +13,14 @@ HOST = os.getenv('HOST')
 DATABASE = os.getenv('database')
 USER = os.getenv('USER')
 
+# Configure the Flask App
 app = Flask(__name__)
 jwt = JWTManager(app)
 app.config['JWT_TOKEN_LOCATION'] = ['headers', 'query_string']
 app.config["JWT_SECRET_KEY"] = secret_key
+app.config['CACHE_TYPE'] = 'simple'
 app.debug = True
 
-# cache = redis.Redis(host='localhost', port=6379, db=0)
 
 #SQL connectivity
 mydb = ms.connect(host=HOST, user=USER, database=DATABASE, password='')
@@ -55,17 +55,10 @@ class ChannelsView(MethodView):
         channels = json_data.get('channels')
         print(channels)
         if user is not None:
-            # cache.set('User', user)
-            # is_route_active = cache.get('route_active')
-            # cache.set('route_active', 'true')
-            for something in channels:
-                print(something)
-
             return channels
-            # executor = ThreadPoolExecutor(max_workers = self.threads)
-            # if is_route_active is None or is_route_active.decode('utf-8') != 'true':
-            #     for process in channels:
-            #         executor.submit(channels[process])
+            executor = ThreadPoolExecutor(max_workers = self.threads)
+            for task in channels:
+                executor.submit(self.task)
             
         else:
             return jsonify({'msg': 'Access forbidden'}), 403

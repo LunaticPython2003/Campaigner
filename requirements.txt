@@ -1,4 +1,4 @@
 flask
 flask-jwt-extended
 mysql-connector-python
-flask-caching
+python-dotenv
