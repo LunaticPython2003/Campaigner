@@ -4,16 +4,26 @@ from flask.views import MethodView
 from concurrent.futures import ThreadPoolExecutor
 import mysql.connector as ms
 import redis
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+secret_key = os.getenv('secret_key')
+HOST = os.getenv('HOST')
+DATABASE = os.getenv('database')
+USER = os.getenv('USER')
 
 app = Flask(__name__)
 jwt = JWTManager(app)
 app.config['JWT_TOKEN_LOCATION'] = ['headers', 'query_string']
-app.config["JWT_SECRET_KEY"] = "eyJhbGciOiJIUzI1NiJ9.eyJSb2xlIjoiQWRtaW4iLCJJc3N1ZXIiOiJJc3N1ZXIiLCJVc2VybmFtZSI6IkphdmFJblVzZSIsImV4cCI6MTY4NTY4MzI3MCwiaWF0IjoxNjg1NjgzMjcwfQ.CWpNPSb5eYAyL-PIHFBgLmm5BFK71NWEtZ_IMm7i0FM"
+app.config["JWT_SECRET_KEY"] = secret_key
+app.debug = True
 
-cache = redis.Redis(host='localhost', port=6379, db=0)
+# cache = redis.Redis(host='localhost', port=6379, db=0)
 
 #SQL connectivity
-mydb = ms.connect(host='localhost', user='root', database='campaigner', password='')
+mydb = ms.connect(host=HOST, user=USER, database=DATABASE, password='')
 db_cursor = mydb.cursor()
 
 @app.route('/user')
@@ -30,38 +40,32 @@ def validate():
         access_token = create_access_token(identity=userid)
         return jsonify({ "token": access_token, "user_id": userid })
     
-# @app.route('/login', methods=['GET'])
-# @jwt_required()
-# def login(): 
-#     current_user_id = get_jwt_identity()[0]
-#     db_cursor.execute(f'select username from customers where userid={current_user_id}')
-#     user = db_cursor.fetchone()
-#     if user is not None:
-#         return "Hello World"
-#     else:
-#         return jsonify({'msg': 'Invalid jwt token'}), 401
     
 class ChannelsView(MethodView):
     threads = 10
 
-    def get(self):
+    @jwt_required()
+    def post(self):
         json_data = request.get_json()
         jwt_token = json_data.get('jwt')
+        current_user_id = str(get_jwt_identity()[0])
 
-        # Pass the JWT to get_jwt_identity function
-        current_user_id = get_jwt_identity(jwt_token)
-        db_cursor.execute(f'select username from customers where userid={current_user_id}')
+        db_cursor.execute(f"SELECT username FROM customers WHERE userid={current_user_id}")
         user = db_cursor.fetchone()[0]
-        channels = request.args.get('channels')
+        channels = json_data.get('channels')
+        print(channels)
         if user is not None:
-            cache.set('User', user)
-            is_route_active = cache.get('route_active')
-            cache.set('route_active', 'true')
-            channels = channels.split(',')
-            executor = ThreadPoolExecutor(max_workers = self.threads)
-            if is_route_active is None or is_route_active.decode('utf-8') != 'true':
-                for process in channels:
-                    executor.submit(channels[process])
+            # cache.set('User', user)
+            # is_route_active = cache.get('route_active')
+            # cache.set('route_active', 'true')
+            for something in channels:
+                print(something)
+
+            return channels
+            # executor = ThreadPoolExecutor(max_workers = self.threads)
+            # if is_route_active is None or is_route_active.decode('utf-8') != 'true':
+            #     for process in channels:
+            #         executor.submit(channels[process])
             
         else:
             return jsonify({'msg': 'Access forbidden'}), 403
