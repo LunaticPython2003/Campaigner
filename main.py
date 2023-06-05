@@ -99,9 +99,13 @@ class ChannelsView(MethodView):
             db_cursor.execute(f'INSERT INTO settings (UserId, threads, priority, chunks) VALUES ({current_user_id}, {threads}, "{priority}", {chunks})')
             mydb.commit()
             return jsonify({'msg': 'Added record successfully'})
-        except ms.errors.IntegrityError as err:
-            return jsonify({'msg': str(err)})
-
+        except (ms.IntegrityError, ms.DataError) as err:
+            return jsonify({"msg": str(err)})
+        except ms.ProgrammingError as err:
+            return jsonify({"msg": str(err)})
+        except ms.Error as err:
+            return jsonify({"msg": str(err)})
+        
     def Whatsapp(self, method):
         self.counter+=1
         print("Whatsapp -> ", method)
