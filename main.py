@@ -3,9 +3,9 @@ from flask_jwt_extended import create_access_token, JWTManager, jwt_required, ge
 from flask.views import MethodView
 import mysql.connector as ms
 import os
-import ast
 from dotenv import load_dotenv
 import threading
+from threading import Lock
 
 load_dotenv()
 
@@ -43,12 +43,11 @@ def validate():
     
 class ChannelsView(MethodView):
     threads = 0
-    priority = {
-    "Sms": 2,
-    "Whatsapp": 1
-}
+    priority = dict()
     chunks = float('inf')
     channel_methods = []
+    lock = Lock()  # Lock to synchronize access to shared variables
+    counter = 0
 
     @jwt_required()
     def post(self):
@@ -62,16 +61,18 @@ class ChannelsView(MethodView):
             db_cursor.execute(f'select * from settings where UserId={current_user_id}')
             result = db_cursor.fetchone()
             if result:
-                self.threads = result[1]
-                self.chunks = result[3]
-                string_result = result[2][1:-1]
-                items = [item.strip() for item in string_result.split(',')]
-                for hierarchy in range(len(items)):
-                    self.priority[items[hierarchy]] = hierarchy+1
+                with self.lock:
+                    self.threads = result[1]
+                    self.chunks = result[3]
+                    string_result = result[2][1:-1]
+                    items = [item.strip() for item in string_result.split(',')]
+                    for hierarchy in range(len(items)):
+                        self.priority[items[hierarchy]] = hierarchy + 1
                 db_cursor.execute(f"SELECT username FROM customers WHERE userid={current_user_id}")
                 user = db_cursor.fetchone()[0]
                 channels = json_data.get('channels')
-                self.channel_methods = sorted(channels.keys(), key=lambda x: self.priority[x])
+                with self.lock:
+                    self.channel_methods = sorted(channels.keys(), key=lambda x: self.priority[x])
                 if user is not None:
                     threads = []
                     for process in self.channel_methods:
@@ -85,9 +86,10 @@ class ChannelsView(MethodView):
                         thread.join()
 
                     return jsonify({'msg': 'Processing completed'})
-                
+
             else:
                 return jsonify({'msg': 'Please register your user settings'})
+
             
     def handle_settings_post(self, current_user_id, json_data):
         threads = json_data.get('threads')
@@ -100,20 +102,20 @@ class ChannelsView(MethodView):
         except ms.errors.IntegrityError as err:
             return jsonify({'msg': str(err)})
 
-    @staticmethod
-    def Whatsapp(method):
+    def Whatsapp(self, method):
+        self.counter+=1
         print("Whatsapp -> ", method)
 
-    @staticmethod
-    def Sms(method):
+    def Sms(self, method):
+        self.counter+=1
         print("Sms -> ", method)
 
-    @staticmethod
-    def Rcs(method):
+    def Rcs(self, method):
+        self.counter+=1
         print(method)
 
-    @staticmethod
-    def Email(method):
+    def Email(self, method):
+        self.counter+=1
         print(method)
         
     
