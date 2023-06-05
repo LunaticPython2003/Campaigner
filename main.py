@@ -18,7 +18,6 @@ app = Flask(__name__)
 jwt = JWTManager(app)
 app.config['JWT_TOKEN_LOCATION'] = ['headers']
 app.config["JWT_SECRET_KEY"] = secret_key
-# app.config['CACHE_TYPE'] = 'simple'
 app.debug = True
 
 
