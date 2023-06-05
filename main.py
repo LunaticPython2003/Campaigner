@@ -3,6 +3,7 @@ from flask_jwt_extended import create_access_token, JWTManager, jwt_required, ge
 from flask.views import MethodView
 import mysql.connector as ms
 import os
+import ast
 from dotenv import load_dotenv
 import threading
 
@@ -33,7 +34,7 @@ def validate():
     db_cursor.execute(f'select userid from customers where username={username} and userkey={userkey}')
     userid = db_cursor.fetchone()
     if userid is None:
-        return jsonify({'msg': 'Wrong username or userid'}), 401
+        return jsonify({'msg': 'Wrong username or userkey'}), 401
     else:
         access_token = create_access_token(identity=userid)
         return jsonify({ "token": access_token, "user_id": userid })
@@ -41,8 +42,11 @@ def validate():
 
     
 class ChannelsView(MethodView):
-    threads = 10
-    priority = {"Sms": 1, "Whatsapp": 2, "Email": 3, "Rcs": 4}
+    threads = 0
+    priority = {
+    "Sms": 2,
+    "Whatsapp": 1
+}
     chunks = float('inf')
     channel_methods = []
 
@@ -55,28 +59,35 @@ class ChannelsView(MethodView):
         if request.path == '/settings':
             return self.handle_settings_post(current_user_id, json_data)
         else:
-            db_cursor.execute(f"SELECT username FROM customers WHERE userid={current_user_id}")
-            user = db_cursor.fetchone()[0]
-            channels = json_data.get('channels')
-            self.channel_methods = sorted(channels.keys(), key=lambda x: self.priority[x])
-            chunks = json_data.get('chunks')
-            self.chunks = chunks
-            if user is not None:
-                threads = []
-                for process in self.channel_methods:
-                    if hasattr(self, process):
-                        func = getattr(self, process)
-                        thread = threading.Thread(target=func, args=(channels[process],))  # Capitalize key
-                        threads.append(thread)
-                        thread.start()
+            db_cursor.execute(f'select * from settings where UserId={current_user_id}')
+            result = db_cursor.fetchone()
+            if result:
+                self.threads = result[1]
+                self.chunks = result[3]
+                string_result = result[2][1:-1]
+                items = [item.strip() for item in string_result.split(',')]
+                for hierarchy in range(len(items)):
+                    self.priority[items[hierarchy]] = hierarchy+1
+                db_cursor.execute(f"SELECT username FROM customers WHERE userid={current_user_id}")
+                user = db_cursor.fetchone()[0]
+                channels = json_data.get('channels')
+                self.channel_methods = sorted(channels.keys(), key=lambda x: self.priority[x])
+                if user is not None:
+                    threads = []
+                    for process in self.channel_methods:
+                        if hasattr(self, process):
+                            func = getattr(self, process)
+                            thread = threading.Thread(target=func, args=(channels[process],))
+                            threads.append(thread)
+                            thread.start()
 
-                for thread in threads:
-                    thread.join()
+                    for thread in threads:
+                        thread.join()
 
-                return jsonify({'msg': 'Processing completed'})
-
+                    return jsonify({'msg': 'Processing completed'})
+                
             else:
-                return jsonify({'msg': 'Access forbidden'}), 403
+                return jsonify({'msg': 'Please register your user settings'})
             
     def handle_settings_post(self, current_user_id, json_data):
         threads = json_data.get('threads')
@@ -85,17 +96,17 @@ class ChannelsView(MethodView):
         try:
             db_cursor.execute(f'INSERT INTO settings (UserId, threads, priority, chunks) VALUES ({current_user_id}, {threads}, "{priority}", {chunks})')
             mydb.commit()
-            return jsonify(message='Added record successfully')
+            return jsonify({'msg': 'Added record successfully'})
         except ms.errors.IntegrityError as err:
-            return jsonify(message=str(err))
+            return jsonify({'msg': str(err)})
 
     @staticmethod
     def Whatsapp(method):
-        print(method)
+        print("Whatsapp -> ", method)
 
     @staticmethod
     def Sms(method):
-        print(method)
+        print("Sms -> ", method)
 
     @staticmethod
     def Rcs(method):
