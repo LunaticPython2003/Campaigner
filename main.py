@@ -6,6 +6,7 @@ import os
 from dotenv import load_dotenv
 import threading
 from threading import Lock
+import json
 
 load_dotenv()
 
@@ -46,8 +47,7 @@ class ChannelsView(MethodView):
     priority = dict()
     chunks = float('inf')
     channel_methods = []
-    lock = Lock()  # Lock to synchronize access to shared variables
-    counter = 0
+    lock = Lock() 
 
     @jwt_required()
     def post(self):
@@ -63,22 +63,27 @@ class ChannelsView(MethodView):
             if result:
                 with self.lock:
                     self.threads = result[1]
-                    self.chunks = result[3]
-                    string_result = result[2][1:-1]
-                    items = [item.strip() for item in string_result.split(',')]
-                    for hierarchy in range(len(items)):
-                        self.priority[items[hierarchy]] = hierarchy + 1
+                    string_channels = result[2][1:-1]
+                    items = [item.strip() for item in string_channels.split(',')]
+                    string_priority = result[3][1:-1]
+                    items_priority = [item.strip() for item in string_priority.split(',')]
+                    self.priority = {items[i]:items_priority[i] for i in range(len(items)) if int(items_priority[i])!= 0}
                 db_cursor.execute(f"SELECT username FROM customers WHERE userid={current_user_id}")
                 user = db_cursor.fetchone()[0]
-                channels = json_data.get('channels')
-                with self.lock:
-                    self.channel_methods = sorted(channels.keys(), key=lambda x: self.priority[x])
+                # channels = json_data.get('channels')
+                # with self.lock:
+                #     self.channel_methods = sorted(channels.keys(), key=lambda x: self.priority[x])
                 if user is not None:
+                    for processes in self.priority:
+                        if hasattr(self, processes):
+                            func = getattr(self, processes)
+                            func(self.priority[processes])
+                    return "Execution done"
                     threads = []
                     for process in self.channel_methods:
                         if hasattr(self, process):
                             func = getattr(self, process)
-                            thread = threading.Thread(target=func, args=(channels[process],))
+                            thread = threading.Thread(target=func, args=(self.priority[process],))
                             threads.append(thread)
                             thread.start()
 
@@ -93,10 +98,12 @@ class ChannelsView(MethodView):
             
     def handle_settings_post(self, current_user_id, json_data):
         threads = json_data.get('threads')
+        channels = json_data.get('channels')
         priority = json_data.get('priority')
-        chunks = json_data.get('chunks')
+        channels_str = json.dumps(channels)
+        priority_str = json.dumps(priority)
         try:
-            db_cursor.execute(f'INSERT INTO settings (UserId, threads, priority, chunks) VALUES ({current_user_id}, {threads}, "{priority}", {chunks})')
+            db_cursor.execute(f'INSERT INTO settings (UserId, threads, channels, priority) VALUES ({current_user_id}, {threads}, {channels_str}, {priority_str})')
             mydb.commit()
             return jsonify({'msg': 'Added record successfully'})
         except (ms.IntegrityError, ms.DataError) as err:
@@ -107,19 +114,15 @@ class ChannelsView(MethodView):
             return jsonify({"msg": str(err)})
         
     def Whatsapp(self, method):
-        self.counter+=1
         print("Whatsapp -> ", method)
 
     def Sms(self, method):
-        self.counter+=1
         print("Sms -> ", method)
 
     def Rcs(self, method):
-        self.counter+=1
         print(method)
 
     def Email(self, method):
-        self.counter+=1
         print(method)
         
     
