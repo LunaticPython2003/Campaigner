@@ -3,8 +3,9 @@ from flask_jwt_extended import create_access_token, JWTManager, jwt_required, ge
 from flask.views import MethodView
 import mysql.connector as ms
 import os
+from concurrent.futures import ThreadPoolExecutor, wait
 from dotenv import load_dotenv
-import threading
+
 from threading import Lock
 import json
 
@@ -55,6 +56,7 @@ class ChannelsView(MethodView):
         jwt_token = auth_header.split("Bearer ")[1] if auth_header and auth_header.startswith("Bearer ") else None
         current_user_id = str(get_jwt_identity()[0])
         json_data = request.get_json()
+        channel_payload = json_data.get('channels')
         if request.path == '/settings':
             return self.handle_settings_post(current_user_id, json_data)
         else:
@@ -70,27 +72,26 @@ class ChannelsView(MethodView):
                     self.priority = {items[i]:items_priority[i] for i in range(len(items)) if int(items_priority[i])!= 0}
                 db_cursor.execute(f"SELECT username FROM customers WHERE userid={current_user_id}")
                 user = db_cursor.fetchone()[0]
-                # channels = json_data.get('channels')
-                # with self.lock:
-                #     self.channel_methods = sorted(channels.keys(), key=lambda x: self.priority[x])
                 if user is not None:
-                    for processes in self.priority:
-                        if hasattr(self, processes):
-                            func = getattr(self, processes)
-                            func(self.priority[processes])
-                    return "Execution done"
-                    threads = []
-                    for process in self.channel_methods:
-                        if hasattr(self, process):
-                            func = getattr(self, process)
-                            thread = threading.Thread(target=func, args=(self.priority[process],))
-                            threads.append(thread)
-                            thread.start()
+                    grouped_channels = {}
+                    for channel, priority in self.priority.items():
+                        if priority not in grouped_channels:
+                            grouped_channels[priority] = []
+                        grouped_channels[priority].append(channel)
 
-                    for thread in threads:
-                        thread.join()
+                    execution_list = list(grouped_channels.values())
+                    with ThreadPoolExecutor(max_workers=self.threads) as executor:
+                        for group in execution_list:
+                            futures = []
+                            for channel in group:
+                                if channel in self.priority and hasattr(self, channel):
+                                    func = getattr(self, channel)
+                                    print(f"Sent {channel} to executor")
+                                    futures.append(executor.submit(func, self.priority[channel]))
+                            print(futures)
 
-                    return jsonify({'msg': 'Processing completed'})
+                            wait(futures)
+                        return jsonify({"msg": "Execution complete"})
 
             else:
                 return jsonify({'msg': 'Please register your user settings'})
@@ -114,16 +115,16 @@ class ChannelsView(MethodView):
             return jsonify({"msg": str(err)})
         
     def Whatsapp(self, method):
-        print("Whatsapp -> ", method)
+        print("Whatsapp ->", method)
 
     def Sms(self, method):
-        print("Sms -> ", method)
+        print("Sms ->", method)
 
     def Rcs(self, method):
-        print(method)
+        print("Rcs ->", method)
 
     def Email(self, method):
-        print(method)
+        print("Email ->", method)
         
     
 app.add_url_rule('/channels', view_func=ChannelsView.as_view('channels'), methods=['POST'])
