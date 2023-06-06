@@ -86,8 +86,7 @@ class ChannelsView(MethodView):
                             for channel in group:
                                 if channel in self.priority and hasattr(self, channel):
                                     func = getattr(self, channel)
-                                    print(f"Sent {channel} to executor")
-                                    futures.append(executor.submit(func, self.priority[channel]))
+                                    futures.append(executor.submit(func, channel_payload[channel]))
                             print(futures)
 
                             wait(futures)
