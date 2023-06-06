@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import time, datetime
 from threading import Lock
 import json
+import requests
 
 load_dotenv()
 
@@ -142,15 +143,27 @@ class ChannelsView(MethodView):
             return jsonify({"msg": str(err)})
         
     def Whatsapp(self, method):
+        response = requests.get('endpoint')
+        if response.status_code != 200:
+            return
         print("Whatsapp ->", method)
 
     def Sms(self, method):
+        response = requests.get('endpoint')
+        if response.status_code != 200:
+            return
         print("Sms ->", method)
 
     def Rcs(self, method):
+        response = requests.get('endpoint')
+        if response.status_code != 200:
+            return
         print("Rcs ->", method)
 
     def Email(self, method):
+        response = requests.get('endpoint')
+        if response.status_code != 200:
+            return
         print("Email ->", method)
         
     

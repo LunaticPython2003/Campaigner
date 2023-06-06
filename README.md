@@ -6,4 +6,4 @@ Readme to track progress
 - [x] Create a table campaigner
 - [x] If data for priority exists in settings, update from 
 - [x] Implemented scheduling
-- [ ] Implement Failsafe
+- [x] Implement Failsafe
