@@ -81,7 +81,6 @@ class ChannelsView(MethodView):
                     with self.lock:
                         self.threads = get_threads
                         self.temp_priority = channel_priority
-                    # self.temp_priority = json.loads(self.temp_priority)
                     for processes in self.temp_priority:
                         values = list(processes.values())
                         self.priority[values[0]] = values[1]
