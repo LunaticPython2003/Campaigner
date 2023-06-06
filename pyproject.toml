@@ -1,19 +1,16 @@
-[tool.poetry]
-name = "campaigner"
-version = "1.0.0"
-description = "A Flask API for bulk messaging"
-authors = ["Madhurjya Dasgupta <madhurjya2003@icloud.com>"]
-license = "Closed"
-readme = "README.md"
 
-[tool.poetry.dependencies]
-python = "^3.11"
-flask = "^2.3.2"
-flask-jwt-extended = "^4.5.2"
-mysql-connector-python = "^8.0.33"
-python-dotenv = "^1.0.0"
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[project]
+name = ""
+version = ""
+description = ""
+authors = [
+    {name = "Madhurjya Dasgupta", email = "madhurjya2003@icloud.com"},
+]
+dependencies = [
+    "flask>=2.2.5",
+    "flask-jwt-extended>=4.5.2",
+    "mysql-connector-python>=8.0.33",
+    "python-dotenv>=0.21.1",
+]
+requires-python = ">=3.7"
+license = {text = "Closed"}
