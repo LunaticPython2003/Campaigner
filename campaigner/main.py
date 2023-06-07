@@ -9,6 +9,8 @@ import time, datetime
 from threading import Lock
 import json
 import requests
+import threading
+import multiprocessing
 
 load_dotenv()
 
@@ -43,7 +45,6 @@ def validate():
         return jsonify({ "token": access_token, "user_id": userid })
     
 
-    
 class ChannelsView(MethodView):
     threads = 0
     priority = dict()
@@ -88,17 +89,25 @@ class ChannelsView(MethodView):
                         self.schedule[values[0]] = values[2]
                     if settings_save == "yes":
                         db_cursor.execute(f"INSERT INTO settings (UserId, threads, channel_priority) VALUES ({current_user_id}, {self.threads}, '{channel_priority}')")
+                        mydb.commit()
             
             db_cursor.execute(f"SELECT username FROM customers WHERE userid={current_user_id}")
             user = db_cursor.fetchone()[0]
+            status_channels = []
+            return_status = dict()
             if user is not None:
                 grouped_channels = {}
                 for channel, priority in self.priority.items():
                     if priority not in grouped_channels:
                         grouped_channels[priority] = []
                     grouped_channels[priority].append(channel)
+                    status_channels.append(channel)
 
                 execution_list = list(grouped_channels.values())
+                return_status = {key:0 for key in status_channels}
+                return_status =json.dumps(return_status)
+                db_cursor.execute(f"INSERT INTO status VALUES ({current_user_id}, '{return_status}')")
+                mydb.commit()
                 with ThreadPoolExecutor(max_workers=self.threads) as executor:
                     for group in execution_list:
                         futures = []
@@ -109,25 +118,36 @@ class ChannelsView(MethodView):
                                 if schedule == "0":
                                     futures.append(executor.submit(func, channel_payload[channel]))
                                 else:
-                                    executor.submit(self.execute_with_schedule, func, channel_payload[channel], schedule)
+                                    executor.submit(self.execute_with_schedule, func, channel, current_user_id,channel_payload[channel], schedule)
                         print(futures)
-
-                        wait(futures)
-                    return jsonify({"msg": "Execution complete"})
+                        threading.Thread(target=wait, args=(futures,)).start()
+                    return jsonify({"msg": "Execution started"})
 
             else:
                 return jsonify({'msg': 'Please register your user settings'})
 
 
-    def execute_with_schedule(self, func, payload, schedule):
+    def execute_with_schedule(self, func, channel, current_user_id, payload, schedule):
         current_time = datetime.datetime.now()
         start_hour, start_minute = map(int, schedule.split(':'))
         scheduled_time = current_time.replace(hour=start_hour, minute=start_minute, second=0, microsecond=0)
         
         if current_time < scheduled_time:
             time.sleep((scheduled_time - current_time).total_seconds())
+
+        process = multiprocessing.Process(target=func, args=(payload,))
+        process.start()
+
+        db_cursor.execute(f"select status_code from status where Userid={current_user_id}")
+        status_code = json.loads(db_cursor.fetchone()[0])
+        status_code = int(status_code[func])
+        while process.is_alive():
+            if status_code == 1:
+                process.terminate()
+                break  
+
+        time.sleep(1) 
         
-        func(payload)
             
     def handle_settings_post(self, current_user_id, json_data):
         threads = json_data.get('threads')
@@ -143,6 +163,10 @@ class ChannelsView(MethodView):
             return jsonify({"msg": str(err)})
         except ms.Error as err:
             return jsonify({"msg": str(err)})
+        
+
+    def handle_status_post(self, current_user_id, json_data):
+        pass
         
     def Whatsapp(self, method):
         response = requests.get('endpoint')
