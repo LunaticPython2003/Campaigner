@@ -61,6 +61,8 @@ class ChannelsView(MethodView):
         json_data = request.get_json()
         if request.path == '/settings':
             return self.handle_settings_post(current_user_id, json_data)
+        elif request.path == '/status':
+            return self.handle_status_post(current_user_id, json_data)
         else:
             channel_payload = json_data.get('channels')
             channel_priority = json_data.get('channel_priority')
@@ -140,7 +142,7 @@ class ChannelsView(MethodView):
 
         db_cursor.execute(f"select status_code from status where Userid={current_user_id}")
         status_code = json.loads(db_cursor.fetchone()[0])
-        status_code = int(status_code[func])
+        status_code = int(status_code[channel])
         while process.is_alive():
             if status_code == 1:
                 process.terminate()
@@ -148,7 +150,20 @@ class ChannelsView(MethodView):
 
         time.sleep(1) 
         
-            
+    def handle_status_post(self, current_user_id, json_data):
+        db_cursor.execute(f"select status_code from status where Userid={current_user_id}")
+        status_code = json.loads(db_cursor.fetchone()[0])
+        payload_status_codes = json_data["status_code"]
+        for channel in status_code:
+            if channel in payload_status_codes:
+                status_code[channel] = 1
+            else:
+                status_code[channel] = 0
+        update_status_code = json.dumps(status_code)
+        db_cursor.execute(f"update status set status_code='{update_status_code}' where Userid={current_user_id}")
+        mydb.commit()
+        return update_status_code
+
     def handle_settings_post(self, current_user_id, json_data):
         threads = json_data.get('threads')
         channels_priority = json_data.get('channel_priority')
@@ -165,9 +180,6 @@ class ChannelsView(MethodView):
             return jsonify({"msg": str(err)})
         
 
-    def handle_status_post(self, current_user_id, json_data):
-        pass
-        
     def Whatsapp(self, method):
         response = requests.get('endpoint')
         if response.status_code != 200:
@@ -195,6 +207,7 @@ class ChannelsView(MethodView):
     
 app.add_url_rule('/channels', view_func=ChannelsView.as_view('channels'), methods=['POST'])
 app.add_url_rule('/settings', view_func=ChannelsView.as_view('post'), methods=['POST'])
+app.add_url_rule('/status', view_func=ChannelsView.as_view('status'), methods=['POST'])
 
 
 if __name__=="__main__":

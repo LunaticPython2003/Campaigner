@@ -26,7 +26,7 @@ python -m campaigner
 - [x] Implemented scheduling
 - [x] Implement Failsafe
 - [x] Add logic to check for thread kill along with thread sleep
-- [ ] Add a status route for controlling the processes
+- [x] Add a status route for controlling the processes
 - [ ] Incorporate the various APIs
 
 ## PLEASE NOTE
