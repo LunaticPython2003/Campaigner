@@ -64,6 +64,7 @@ class ChannelsView(MethodView):
             channel_payload = json_data.get('channels')
             channel_priority = json_data.get('channel_priority')
             get_threads = json_data.get('threads')
+            settings_save = json_data.get('save_settings')
             proceed = bool(channel_priority==None or get_threads==None)
             match proceed:
                 case True:
@@ -85,6 +86,8 @@ class ChannelsView(MethodView):
                         values = list(processes.values())
                         self.priority[values[0]] = values[1]
                         self.schedule[values[0]] = values[2]
+                    if settings_save == "yes":
+                        db_cursor.execute(f"INSERT INTO settings (UserId, threads, channel_priority) VALUES ({current_user_id}, {self.threads}, '{channel_priority}')")
             
             db_cursor.execute(f"SELECT username FROM customers WHERE userid={current_user_id}")
             user = db_cursor.fetchone()[0]
