@@ -12,6 +12,7 @@ import requests
 import threading
 import multiprocessing
 
+## Load the environment variables
 load_dotenv()
 
 secret_key = os.getenv('secret_key')
@@ -31,6 +32,7 @@ app.debug = True
 mydb = ms.connect(host=HOST, user=USER, database=DATABASE, password='')
 db_cursor = mydb.cursor()
 
+## Route to generate the jwt token
 @app.route('/user')
 def validate():
     query = request.args.values()
@@ -44,23 +46,25 @@ def validate():
         access_token = create_access_token(identity=userid)
         return jsonify({ "token": access_token, "user_id": userid })
     
-
+## View class which contains all the routes
 class ChannelsView(MethodView):
     threads = 0
     priority = dict()
     chunks = float('inf')
     schedule = {}
     temp_priority = {}
-    lock = Lock() 
+    lock = Lock() ## Hopefully, will prevent race conditions
 
     @jwt_required()
     def post(self):
         auth_header = request.headers.get('Authorization')
         jwt_token = auth_header.split("Bearer ")[1] if auth_header and auth_header.startswith("Bearer ") else None
-        current_user_id = str(get_jwt_identity()[0])
+        current_user_id = str(get_jwt_identity()[0]) ## Get the data from JWT token
         json_data = request.get_json()
+        ## Definition for /settings route
         if request.path == '/settings':
             return self.handle_settings_post(current_user_id, json_data)
+        ## Definition for /status route
         elif request.path == '/status':
             return self.handle_status_post(current_user_id, json_data)
         else:
