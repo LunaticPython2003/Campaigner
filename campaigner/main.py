@@ -144,15 +144,14 @@ class ChannelsView(MethodView):
         process = multiprocessing.Process(target=func, args=(payload,))
         process.start()
 
-        db_cursor.execute(f"select status_code from status where Userid={current_user_id}")
-        status_code = json.loads(db_cursor.fetchone()[0])
-        status_code = int(status_code[channel])
         while process.is_alive():
+            db_cursor.execute(f"select status_code from status where Userid={current_user_id}")
+            status_code = json.loads(db_cursor.fetchone()[0])
+            status_code = int(status_code[channel])
             if status_code == 1:
                 process.terminate()
                 break  
-
-        time.sleep(1) 
+            time.sleep(1) 
         
     def handle_status_post(self, current_user_id, json_data):
         db_cursor.execute(f"select status_code from status where Userid={current_user_id}")
