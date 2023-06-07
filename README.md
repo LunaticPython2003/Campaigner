@@ -1,4 +1,4 @@
-Readme to track progress
+Track progress
 - [x] Create a view class for the requests
 - [x] Create the two routes
 - [x] Fetch details of a userid from settings table
@@ -7,3 +7,5 @@ Readme to track progress
 - [x] If data for priority exists in settings, update from 
 - [x] Implemented scheduling
 - [x] Implement Failsafe
+- [ ] Add logic to check for thread kill along with thread sleep
+- [ ] Incorporate the various APIs
