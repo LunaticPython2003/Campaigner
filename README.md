@@ -25,7 +25,8 @@ python -m campaigner
 - [x] If data for priority exists in settings, update from 
 - [x] Implemented scheduling
 - [x] Implement Failsafe
-- [ ] Add logic to check for thread kill along with thread sleep
+- [x] Add logic to check for thread kill along with thread sleep
+- [ ] Add a status route for controlling the processes
 - [ ] Incorporate the various APIs
 
 ## PLEASE NOTE
