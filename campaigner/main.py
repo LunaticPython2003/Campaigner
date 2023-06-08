@@ -161,14 +161,21 @@ class ChannelsView(MethodView):
     def load_csv(self, current_user_id, file):
         if 'csv_file' not in request.files:
             return jsonify({'msg': 'No file uploaded'})
+        
         file = request.files['csv_file']
         csv_file = io.TextIOWrapper(file, encoding='utf-8')
         csv_reader = csv.DictReader(csv_file)
         Phone, email_address = list(), list()
+        
         for row in csv_reader:
             Phone.append(row['phone_number'])
             email_address.append(row['email_address'])
-        return jsonify({"msg": f"Phone -> {Phone} and email -> {email_address}"})
+        
+        Phone, email_address = str(Phone), str(email_address)
+        query = "INSERT INTO send (Userid, Phone, email_address) VALUES (%s, %s, %s)"
+        db_cursor.execute(query, (current_user_id, Phone, email_address))
+        mydb.commit()
+        return jsonify({"msg": "Execution successful"})
         
     def handle_status_post(self, current_user_id, json_data):
         db_cursor.execute(f"select status_code from status where Userid={current_user_id}")
