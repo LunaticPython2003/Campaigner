@@ -11,6 +11,7 @@ import json
 import requests
 import threading
 import multiprocessing
+import csv, io
 
 ## Load the environment variables
 load_dotenv()
@@ -60,14 +61,18 @@ class ChannelsView(MethodView):
         auth_header = request.headers.get('Authorization')
         jwt_token = auth_header.split("Bearer ")[1] if auth_header and auth_header.startswith("Bearer ") else None
         current_user_id = str(get_jwt_identity()[0]) ## Get the data from JWT token
-        json_data = request.get_json()
         ## Definition for /settings route
         if request.path == '/settings':
+            json_data = request.get_json()
             return self.handle_settings_post(current_user_id, json_data)
         ## Definition for /status route
         elif request.path == '/status':
+            json_data = request.get_json()
             return self.handle_status_post(current_user_id, json_data)
+        elif request.path == '/load_csv':
+            return self.load_csv(current_user_id, request.files)
         else:
+            json_data = request.get_json()
             channel_payload = json_data.get('channels')
             channel_priority = json_data.get('channel_priority')
             get_threads = json_data.get('threads')
@@ -152,6 +157,18 @@ class ChannelsView(MethodView):
                 process.terminate()
                 break  
             time.sleep(1) 
+
+    def load_csv(self, current_user_id, file):
+        if 'csv_file' not in request.files:
+            return jsonify({'msg': 'No file uploaded'})
+        file = request.files['csv_file']
+        csv_file = io.TextIOWrapper(file, encoding='utf-8')
+        csv_reader = csv.DictReader(csv_file)
+        Phone, email_address = list(), list()
+        for row in csv_reader:
+            Phone.append(row['phone_number'])
+            email_address.append(row['email_address'])
+        return jsonify({"msg": f"Phone -> {Phone} and email -> {email_address}"})
         
     def handle_status_post(self, current_user_id, json_data):
         db_cursor.execute(f"select status_code from status where Userid={current_user_id}")
@@ -211,6 +228,7 @@ class ChannelsView(MethodView):
 app.add_url_rule('/channels', view_func=ChannelsView.as_view('channels'), methods=['POST'])
 app.add_url_rule('/settings', view_func=ChannelsView.as_view('post'), methods=['POST'])
 app.add_url_rule('/status', view_func=ChannelsView.as_view('status'), methods=['POST'])
+app.add_url_rule('/load_csv', view_func=ChannelsView.as_view('load_csv'), methods=['POST'])
 
 
 if __name__=="__main__":
