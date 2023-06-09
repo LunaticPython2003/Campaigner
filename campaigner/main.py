@@ -11,7 +11,10 @@ import json
 import requests
 import threading
 import multiprocessing
-import csv, io
+import csv
+import base64
+import logging
+from secrets import randbelow
 
 ## Load the environment variables
 load_dotenv()
@@ -27,6 +30,7 @@ jwt = JWTManager(app)
 app.config['JWT_TOKEN_LOCATION'] = ['headers']
 app.config["JWT_SECRET_KEY"] = secret_key
 app.debug = True
+logging.basicConfig(level=logging.DEBUG)
 
 
 #SQL connectivity
@@ -54,6 +58,7 @@ class ChannelsView(MethodView):
     chunks = float('inf')
     schedule = {}
     temp_priority = {}
+    campaign_id = 0
     lock = Lock() ## Hopefully, will prevent race conditions
 
     @jwt_required()
@@ -61,6 +66,8 @@ class ChannelsView(MethodView):
         auth_header = request.headers.get('Authorization')
         jwt_token = auth_header.split("Bearer ")[1] if auth_header and auth_header.startswith("Bearer ") else None
         current_user_id = str(get_jwt_identity()[0]) ## Get the data from JWT token
+        with self.lock:
+            self.campaign_id = randbelow(20000)
         ## Definition for /settings route
         if request.path == '/settings':
             json_data = request.get_json()
@@ -69,8 +76,6 @@ class ChannelsView(MethodView):
         elif request.path == '/status':
             json_data = request.get_json()
             return self.handle_status_post(current_user_id, json_data)
-        elif request.path == '/load_csv':
-            return self.load_csv(current_user_id, request.files)
         else:
             json_data = request.get_json()
             channel_payload = json_data.get('channels')
@@ -157,26 +162,7 @@ class ChannelsView(MethodView):
                 process.terminate()
                 break  
             time.sleep(1) 
-
-    def load_csv(self, current_user_id, file):
-        if 'csv_file' not in request.files:
-            return jsonify({'msg': 'No file uploaded'})
-        
-        file = request.files['csv_file']
-        csv_file = io.TextIOWrapper(file, encoding='utf-8')
-        csv_reader = csv.DictReader(csv_file)
-        Phone, email_address = list(), list()
-        
-        for row in csv_reader:
-            Phone.append(row['phone_number'])
-            email_address.append(row['email_address'])
-        
-        Phone, email_address = str(Phone), str(email_address)
-        query = "INSERT INTO send (Userid, Phone, email_address) VALUES (%s, %s, %s)"
-        db_cursor.execute(query, (current_user_id, Phone, email_address))
-        mydb.commit()
-        return jsonify({"msg": "Execution successful"})
-        
+    
     def handle_status_post(self, current_user_id, json_data):
         db_cursor.execute(f"select status_code from status where Userid={current_user_id}")
         status_code = json.loads(db_cursor.fetchone()[0])
@@ -206,36 +192,38 @@ class ChannelsView(MethodView):
         except ms.Error as err:
             return jsonify({"msg": str(err)})
         
+    def decode_csv(self, csv):
+        decoded_csv = base64.b64decode(csv)
+        return decoded_csv.decode('utf-8')
 
     def Whatsapp(self, method):
-        response = requests.get('endpoint')
-        if response.status_code != 200:
-            return
-        print("Whatsapp ->", method)
+        csv_file = method.get('csv_file')
+        decoded_csv = self.decode_csv(csv_file)
+        print(decoded_csv)
+        return decoded_csv
 
     def Sms(self, method):
-        response = requests.get('endpoint')
-        if response.status_code != 200:
-            return
-        print("Sms ->", method)
+        csv_file = method.get('csv_file')
+        decoded_csv = self.decode_csv(csv_file)
+        print(decoded_csv)
+        return decoded_csv
 
     def Rcs(self, method):
-        response = requests.get('endpoint')
-        if response.status_code != 200:
-            return
-        print("Rcs ->", method)
+        csv_file = method.get('csv_file')
+        decoded_csv = self.decode_csv(csv_file)
+        print(decoded_csv)
+        return decoded_csv
 
     def Email(self, method):
-        response = requests.get('endpoint')
-        if response.status_code != 200:
-            return
-        print("Email ->", method)
+        csv_file = method.get('csv_file')
+        decoded_csv = self.decode_csv(csv_file)
+        print(decoded_csv)
+        return decoded_csv
         
     
 app.add_url_rule('/channels', view_func=ChannelsView.as_view('channels'), methods=['POST'])
 app.add_url_rule('/settings', view_func=ChannelsView.as_view('post'), methods=['POST'])
 app.add_url_rule('/status', view_func=ChannelsView.as_view('status'), methods=['POST'])
-app.add_url_rule('/load_csv', view_func=ChannelsView.as_view('load_csv'), methods=['POST'])
 
 
 if __name__=="__main__":
