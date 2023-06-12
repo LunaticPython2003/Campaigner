@@ -1,4 +1,4 @@
-email,template
-another,Hello
-another,World
-something,Nohting
+email,message,amount
+another,Hello,321
+another,World,535
+something,Something,231

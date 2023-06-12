@@ -1,5 +1,5 @@
-phone_number,template
-1231,Hello
-1313,World
-32131,Nothing
-3123,New
+phone_number,message,amount
+1231,Hello,525
+1313,World,546
+32131,Nothing,746
+3123,New,774
