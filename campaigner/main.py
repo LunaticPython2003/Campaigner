@@ -114,10 +114,11 @@ class ChannelsView(MethodView):
             if user is not None:
                 grouped_channels = {}
                 for channel, priority in self.priority.items():
-                    if priority not in grouped_channels:
-                        grouped_channels[priority] = []
-                    grouped_channels[priority].append(channel)
-                    status_channels.append(channel)
+                    if priority != 0:
+                        if priority not in grouped_channels:
+                            grouped_channels[priority] = []
+                        grouped_channels[priority].append(channel)
+                        status_channels.append(channel)
 
                 execution_list = list(grouped_channels.values())
                 return_status = {key:0 for key in status_channels}
