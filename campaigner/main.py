@@ -11,7 +11,8 @@ from threading import Lock
 import json
 import threading
 import multiprocessing
-import base64
+import csv
+import urllib.request
 from secrets import randbelow
 
 ## Load the environment variables
@@ -165,12 +166,12 @@ class ChannelsView(MethodView):
             # Handle exception here
             print(f"An exception occurred: {str(e)}")
 
-    def decode_csv(self, csv):
-        decoded_csv = base64.b64decode(csv).decode('utf-8')
-        lines = decoded_csv.strip().split("\n")
-        values = [line.split(",") for line in lines[1:]]
-        values = [[value.rstrip('\r') for value in row] for row in values]
-        return values
+    def decode_csv(self, url):
+        with urllib.request.urlopen(url) as response:
+            reader = csv.reader(response.read().decode('utf-8').splitlines())
+            next(reader) # Skip the header
+            decoded_csv = list(reader)
+        return decoded_csv
 
     def execute_query(self, query, params=None):
         connection = connection_pool.get_connection()
@@ -235,11 +236,10 @@ class ChannelsView(MethodView):
         for value in decoded_csv:
             temp_list = [self.campaign_id, current_user_id, "Whatsapp", "0"] + value
             processed_data.append(temp_list)
-
+        print(processed_data)
         query = "INSERT INTO phone values (%s, %s, %s, %s, %s, %s)"
         self.execute_query(query, processed_data)
         print(processed_data)
-        return decoded_csv
 
     def Sms(self, current_user_id, method):
         csv_file = method.get('csv_file')
@@ -248,11 +248,10 @@ class ChannelsView(MethodView):
         for value in decoded_csv:
             temp_list = [self.campaign_id, current_user_id, "Sms", "0"] + value
             processed_data.append(temp_list)
-
+        print(processed_data)
         query = "INSERT INTO phone values (%s, %s, %s, %s, %s, %s)"
         self.execute_query(query, processed_data)
         print(processed_data)
-        return decoded_csv
 
     def Rcs(self, current_user_id, method):
         csv_file = method.get('csv_file')
@@ -261,24 +260,22 @@ class ChannelsView(MethodView):
         for value in decoded_csv:
             temp_list = [self.campaign_id, current_user_id, "Rcs", "0"] + value
             processed_data.append(temp_list)
-
+        print(processed_data)
         query = "INSERT INTO phone values (%s, %s, %s, %s, %s, %s)"
         self.execute_query(query, processed_data)
         print(processed_data)
-        return decoded_csv
 
     def Email(self, current_user_id, method):
         csv_file = method.get('csv_file')
         decoded_csv = self.decode_csv(csv_file)
         processed_data = []
         for value in decoded_csv:
-            temp_list = [self.campaign_id, current_user_id, "0"] + value
+            temp_list = [self.campaign_id, current_user_id, "Email", "0"] + value
             processed_data.append(temp_list)
-
-        query = "INSERT INTO email values (%s, %s, %s, %s, %s)"
+        print(processed_data)
+        query = "INSERT INTO phone values (%s, %s, %s, %s, %s, %s)"
         self.execute_query(query, processed_data)
         print(processed_data)
-        return decoded_csv
         
     
 app.add_url_rule('/channels', view_func=ChannelsView.as_view('channels'), methods=['POST'])
