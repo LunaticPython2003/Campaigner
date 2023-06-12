@@ -4,7 +4,7 @@ from flask.views import MethodView
 import mysql.connector as ms
 from mysql.connector import pooling
 import os
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from dotenv import load_dotenv
 import time, datetime
 from threading import Lock
@@ -142,17 +142,32 @@ class ChannelsView(MethodView):
                                 func = getattr(self, channel)
                                 schedule = self.schedule[channel]
                                 if schedule == "0":
-                                    futures.append(executor.submit(func, current_user_id, channel_payload[channel]))
+                                    futures.append(executor.submit(self.run_function, func, current_user_id, channel_payload[channel]))
                                 else:
                                     executor.submit(self.execute_with_schedule, func, channel, current_user_id,channel_payload[channel], schedule)
                         print(futures)
                         threading.Thread(target=wait, args=(futures,)).start()
-                    return jsonify({"msg": "Execution started"})
+
+                try:
+                    wait(futures)
+                except Exception as e:
+                    # Handle exception here
+                    print(f"An exception occurred: {str(e)}")
+
+                # Get the results from completed futures
+                results = [future.result() for future in as_completed(futures)]
+                return "Execution DOne"
 
             else:
                 return jsonify({'msg': 'Please register your user settings'})
             
-        
+    def run_function(self, func, current_user_id, payload):
+        try:
+            return func(current_user_id, payload)
+        except Exception as e:
+            # Handle exception here
+            print(f"An exception occurred: {str(e)}")
+
     def decode_csv(self, csv):
         decoded_csv = base64.b64decode(csv).decode('utf-8')
         lines = decoded_csv.strip().split("\n")
@@ -164,8 +179,8 @@ class ChannelsView(MethodView):
         connection = connection_pool.get_connection()
         cursor = connection.cursor()
         cursor.executemany(query, params)
+        connection.commit()
         cursor.close()
-        connection_pool.release_connection(connection)
 
     def execute_with_schedule(self, func, channel, current_user_id, payload, schedule):
         current_time = datetime.datetime.now()
@@ -221,10 +236,11 @@ class ChannelsView(MethodView):
         decoded_csv = self.decode_csv(csv_file)
         processed_data = []
         for value in decoded_csv:
-            processed_data = [self.campaign_id, current_user_id, "Whatsapp", "0"] + value
-            processed_data.append(processed_data)
+            temp_list = [self.campaign_id, current_user_id, "Whatsapp", "0"] + value
+            processed_data.append(temp_list)
 
         query = "INSERT INTO phone values (%s, %s, %s, %s, %s, %s)"
+        self.execute_query(query, processed_data)
         print(processed_data)
         return decoded_csv
 
@@ -233,10 +249,11 @@ class ChannelsView(MethodView):
         decoded_csv = self.decode_csv(csv_file)
         processed_data = []
         for value in decoded_csv:
-            processed_data = [self.campaign_id, current_user_id, "Whatsapp", "0"] + value
-            processed_data.append(processed_data)
+            temp_list = [self.campaign_id, current_user_id, "Sms", "0"] + value
+            processed_data.append(temp_list)
 
         query = "INSERT INTO phone values (%s, %s, %s, %s, %s, %s)"
+        self.execute_query(query, processed_data)
         print(processed_data)
         return decoded_csv
 
@@ -245,10 +262,11 @@ class ChannelsView(MethodView):
         decoded_csv = self.decode_csv(csv_file)
         processed_data = []
         for value in decoded_csv:
-            processed_data = [self.campaign_id, current_user_id, "Whatsapp", "0"] + value
-            processed_data.append(processed_data)
+            temp_list = [self.campaign_id, current_user_id, "Rcs", "0"] + value
+            processed_data.append(temp_list)
 
         query = "INSERT INTO phone values (%s, %s, %s, %s, %s, %s)"
+        self.execute_query(query, processed_data)
         print(processed_data)
         return decoded_csv
 
@@ -260,7 +278,8 @@ class ChannelsView(MethodView):
             temp_list = [self.campaign_id, current_user_id, "0"] + value
             processed_data.append(temp_list)
 
-        query = "INSERT INTO email values (%s, %s, %s, %s, %s, %s)"
+        query = "INSERT INTO email values (%s, %s, %s, %s, %s)"
+        self.execute_query(query, processed_data)
         print(processed_data)
         return decoded_csv
         
