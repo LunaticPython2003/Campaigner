@@ -13,7 +13,6 @@ import threading
 import multiprocessing
 import csv
 import base64
-import logging
 from secrets import randbelow
 
 ## Load the environment variables
@@ -30,7 +29,6 @@ jwt = JWTManager(app)
 app.config['JWT_TOKEN_LOCATION'] = ['headers']
 app.config["JWT_SECRET_KEY"] = secret_key
 app.debug = True
-logging.basicConfig(level=logging.DEBUG)
 
 
 #SQL connectivity
