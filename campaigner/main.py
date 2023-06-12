@@ -2,13 +2,13 @@ from flask import Flask, request, jsonify
 from flask_jwt_extended import create_access_token, JWTManager, jwt_required, get_jwt_identity
 from flask.views import MethodView
 import mysql.connector as ms
+from mysql.connector import pooling
 import os
 from concurrent.futures import ThreadPoolExecutor, wait
 from dotenv import load_dotenv
 import time, datetime
 from threading import Lock
 import json
-import requests
 import threading
 import multiprocessing
 import csv
@@ -36,6 +36,15 @@ logging.basicConfig(level=logging.DEBUG)
 #SQL connectivity
 mydb = ms.connect(host=HOST, user=USER, database=DATABASE, password='')
 db_cursor = mydb.cursor()
+
+connection_pool = pooling.MySQLConnectionPool(
+    pool_name="futures_pool",
+    pool_size=5,
+    host=HOST,
+    user=USER,
+    password="",
+    database=DATABASE
+)
 
 ## Route to generate the jwt token
 @app.route('/user')
@@ -133,7 +142,7 @@ class ChannelsView(MethodView):
                                 func = getattr(self, channel)
                                 schedule = self.schedule[channel]
                                 if schedule == "0":
-                                    futures.append(executor.submit(func, channel_payload[channel]))
+                                    futures.append(executor.submit(func, current_user_id, channel_payload[channel]))
                                 else:
                                     executor.submit(self.execute_with_schedule, func, channel, current_user_id,channel_payload[channel], schedule)
                         print(futures)
@@ -142,7 +151,21 @@ class ChannelsView(MethodView):
 
             else:
                 return jsonify({'msg': 'Please register your user settings'})
+            
+        
+    def decode_csv(self, csv):
+        decoded_csv = base64.b64decode(csv).decode('utf-8')
+        lines = decoded_csv.strip().split("\n")
+        values = [line.split(",") for line in lines[1:]]
+        values = [[value.rstrip('\r') for value in row] for row in values]
+        return values
 
+    def execute_query(self, query, params=None):
+        connection = connection_pool.get_connection()
+        cursor = connection.cursor()
+        cursor.executemany(query, params)
+        cursor.close()
+        connection_pool.release_connection(connection)
 
     def execute_with_schedule(self, func, channel, current_user_id, payload, schedule):
         current_time = datetime.datetime.now()
@@ -152,7 +175,7 @@ class ChannelsView(MethodView):
         if current_time < scheduled_time:
             time.sleep((scheduled_time - current_time).total_seconds())
 
-        process = multiprocessing.Process(target=func, args=(payload,))
+        process = multiprocessing.Process(target=func, args=(current_user_id, payload,))
         process.start()
 
         while process.is_alive():
@@ -192,33 +215,53 @@ class ChannelsView(MethodView):
             return jsonify({"msg": str(err)})
         except ms.Error as err:
             return jsonify({"msg": str(err)})
-        
-    def decode_csv(self, csv):
-        decoded_csv = base64.b64decode(csv)
-        return decoded_csv.decode('utf-8')
 
-    def Whatsapp(self, method):
+    def Whatsapp(self, current_user_id, method):
         csv_file = method.get('csv_file')
         decoded_csv = self.decode_csv(csv_file)
-        print(decoded_csv)
+        processed_data = []
+        for value in decoded_csv:
+            processed_data = [self.campaign_id, current_user_id, "Whatsapp", "0"] + value
+            processed_data.append(processed_data)
+
+        query = "INSERT INTO phone values (%s, %s, %s, %s, %s, %s)"
+        print(processed_data)
         return decoded_csv
 
-    def Sms(self, method):
+    def Sms(self, current_user_id, method):
         csv_file = method.get('csv_file')
         decoded_csv = self.decode_csv(csv_file)
-        print(decoded_csv)
+        processed_data = []
+        for value in decoded_csv:
+            processed_data = [self.campaign_id, current_user_id, "Whatsapp", "0"] + value
+            processed_data.append(processed_data)
+
+        query = "INSERT INTO phone values (%s, %s, %s, %s, %s, %s)"
+        print(processed_data)
         return decoded_csv
 
-    def Rcs(self, method):
+    def Rcs(self, current_user_id, method):
         csv_file = method.get('csv_file')
         decoded_csv = self.decode_csv(csv_file)
-        print(decoded_csv)
+        processed_data = []
+        for value in decoded_csv:
+            processed_data = [self.campaign_id, current_user_id, "Whatsapp", "0"] + value
+            processed_data.append(processed_data)
+
+        query = "INSERT INTO phone values (%s, %s, %s, %s, %s, %s)"
+        print(processed_data)
         return decoded_csv
 
-    def Email(self, method):
+    def Email(self, current_user_id, method):
         csv_file = method.get('csv_file')
         decoded_csv = self.decode_csv(csv_file)
-        print(decoded_csv)
+        processed_data = []
+        for value in decoded_csv:
+            temp_list = [self.campaign_id, current_user_id, "0"] + value
+            processed_data.append(temp_list)
+
+        query = "INSERT INTO email values (%s, %s, %s, %s, %s, %s)"
+        print(processed_data)
         return decoded_csv
         
     
