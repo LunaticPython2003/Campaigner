@@ -167,10 +167,14 @@ class ChannelsView(MethodView):
             print(f"An exception occurred: {str(e)}")
 
     def decode_csv(self, url):
+        dictionary = {}
+        header = ""
         with urllib.request.urlopen(url) as response:
             reader = csv.reader(response.read().decode('utf-8').splitlines())
-            next(reader) # Skip the header
-            decoded_csv = list(reader)
+            header = next(reader) # Skip the header
+            dictionary = list(reader)
+
+        decoded_csv = {header[0]: [dictionary[i][0] for i in range(len(dictionary))], 'payload': [[dictionary[i][1], dictionary[i][2]] for i in range(len(dictionary))]}
         return decoded_csv
 
     def execute_query(self, query, params=None):
@@ -179,6 +183,7 @@ class ChannelsView(MethodView):
         cursor.executemany(query, params)
         connection.commit()
         cursor.close()
+        connection.close()
 
     def execute_with_schedule(self, func, channel, current_user_id, payload, schedule):
         current_time = datetime.datetime.now()
@@ -231,51 +236,74 @@ class ChannelsView(MethodView):
 
     def Whatsapp(self, current_user_id, method):
         csv_file = method.get('csv_file')
+        campaign = method.get("campaign")
         decoded_csv = self.decode_csv(csv_file)
         processed_data = []
-        for value in decoded_csv:
-            temp_list = [self.campaign_id, current_user_id, "Whatsapp", "0"] + value
+        for i in range(len(decoded_csv['phone_number'])):
+            payload = {
+            'msg': decoded_csv['payload'][i][0],
+            'amount': decoded_csv['payload'][i][1]
+        }
+            template = json.dumps({'payload': payload})
+            temp_list = [self.campaign_id, current_user_id, campaign, "Whatsapp", "0"] + [decoded_csv['phone_number'][i]] + [template]
             processed_data.append(temp_list)
+        query = "INSERT INTO phone (campaign_id, Userid, c_name, channel, processed, entity, template) values (%s, %s, %s, %s, %s, %s, %s)"
         print(processed_data)
-        query = "INSERT INTO phone values (%s, %s, %s, %s, %s, %s)"
-        self.execute_query(query, processed_data)
-        print(processed_data)
+        for row in processed_data:
+            self.execute_query(query, [row])
 
     def Sms(self, current_user_id, method):
         csv_file = method.get('csv_file')
+        campaign = method.get("campaign")
         decoded_csv = self.decode_csv(csv_file)
         processed_data = []
-        for value in decoded_csv:
-            temp_list = [self.campaign_id, current_user_id, "Sms", "0"] + value
+        for i in range(len(decoded_csv['phone_number'])):
+            payload = {
+            'msg': decoded_csv['payload'][i][0],
+            'amount': decoded_csv['payload'][i][1]
+        }
+            template = json.dumps({'payload': payload})
+            temp_list = [self.campaign_id, current_user_id, campaign, "Sms", "0"] + [decoded_csv['phone_number'][i]] + [template]
             processed_data.append(temp_list)
-        print(processed_data)
-        query = "INSERT INTO phone values (%s, %s, %s, %s, %s, %s)"
-        self.execute_query(query, processed_data)
-        print(processed_data)
+        query = "INSERT INTO phone (campaign_id, Userid, c_name, channel, processed, entity, template) values (%s, %s, %s, %s, %s, %s, %s)"
+        print("Sms->",processed_data)
+        for row in processed_data:
+            self.execute_query(query, [row])
 
     def Rcs(self, current_user_id, method):
         csv_file = method.get('csv_file')
+        campaign = method.get("campaign")
         decoded_csv = self.decode_csv(csv_file)
         processed_data = []
-        for value in decoded_csv:
-            temp_list = [self.campaign_id, current_user_id, "Rcs", "0"] + value
+        for i in range(len(decoded_csv['phone_number'])):
+            payload = {
+            'msg': decoded_csv['payload'][i][0],
+            'amount': decoded_csv['payload'][i][1]
+        }
+            template = json.dumps({'payload': payload})
+            temp_list = [self.campaign_id, current_user_id, campaign, "Rcs", "0"] + [decoded_csv['phone_number'][i]] + [template]
             processed_data.append(temp_list)
+        query = "INSERT INTO phone (campaign_id, Userid, c_name, channel, processed, entity, template) values (%s, %s, %s, %s, %s, %s, %s)"
         print(processed_data)
-        query = "INSERT INTO phone values (%s, %s, %s, %s, %s, %s)"
-        self.execute_query(query, processed_data)
-        print(processed_data)
+        for row in processed_data:
+            self.execute_query(query, [row])
 
     def Email(self, current_user_id, method):
         csv_file = method.get('csv_file')
+        campaign = method.get("campaign")
         decoded_csv = self.decode_csv(csv_file)
         processed_data = []
-        for value in decoded_csv:
-            temp_list = [self.campaign_id, current_user_id, "Email", "0"] + value
+        for i in range(len(decoded_csv['email'])):
+            payload = {
+            'msg': decoded_csv['payload'][i][0],
+            'amount': decoded_csv['payload'][i][1]
+        }
+            template = json.dumps({'payload': payload})
+            temp_list = [self.campaign_id, current_user_id, campaign, "Email", "0"] + [decoded_csv['email'][i]] + [template]
             processed_data.append(temp_list)
-        print(processed_data)
-        query = "INSERT INTO phone values (%s, %s, %s, %s, %s, %s)"
-        self.execute_query(query, processed_data)
-        print(processed_data)
+        query = "INSERT INTO phone (campaign_id, Userid, c_name, channel, processed, entity, template) values (%s, %s, %s, %s, %s, %s, %s)"
+        for row in processed_data:
+            self.execute_query(query, [row])
         
     
 app.add_url_rule('/channels', view_func=ChannelsView.as_view('channels'), methods=['POST'])
